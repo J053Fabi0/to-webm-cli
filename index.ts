@@ -70,9 +70,7 @@ try {
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
-      .on("start", () => {
-        pids.add(command.ffmpegProc.pid);
-      })
+      .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
       .on("end", () => {
         resolve();
       })
@@ -105,9 +103,7 @@ try {
         "-ac 2",
       ])
       .save(outputFile)
-      .on("start", () => {
-        pids.add(command.ffmpegProc.pid);
-      })
+      .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
       .on("end", () => resolve())
       .on("progress", (progress) => {
         if (progress.percent && isNaN(progress.percent) === false && progress.percent > lastPercent) {
@@ -125,7 +121,7 @@ try {
   await new Promise((r) => setTimeout(r, 100));
   if (ranKill === false) console.error(e);
 } finally {
-  console.log(`Terminado. ${crf}, ${deadline}`);
-
+  await new Promise((r) => setTimeout(r, 100));
+  if (ranKill === false) console.log(`Terminado. ${crf}, ${deadline}`);
   killCommands();
 }
