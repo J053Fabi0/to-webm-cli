@@ -33,16 +33,26 @@ const { crf, deadline } = await selectParams();
 const outputFile = join(Deno.cwd(), `${parse(video).name}.webm`);
 const videoPath = join(Deno.cwd(), video);
 
-let killed = false;
-const commands = [ffmpeg(videoPath), ffmpeg(videoPath)] as const;
+const pids = new Set<number>();
+let ranKill = false;
 function killCommands() {
-  killed = true;
-  for (let i = 0; i < 10; i++) {
-    for (const c of commands) c.kill("SIGINT");
-  }
+  if (ranKill) return;
+  ranKill = true;
+  const promise = Deno.remove(join(Deno.cwd(), "ffmpeg2pass-0.log")).catch(() => undefined);
+
+  console.log(pids);
+  for (let i = 0; i < 10; i++)
+    for (const pid of pids) {
+      try {
+        Deno.kill(pid, "SIGINT");
+      } catch {
+        //
+      }
+    }
 
   console.log("Closing in 3 secs");
-  setTimeout(() => {
+  setTimeout(async () => {
+    await promise;
     Deno.exit();
   }, 3000);
 }
@@ -54,11 +64,18 @@ try {
   await new Promise<void>((resolve, reject) => {
     const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
 
-    commands[0]
+    const command = ffmpeg(videoPath);
+
+    command
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
-      .on("end", () => resolve())
+      .on("start", () => {
+        pids.add(command.ffmpegProc.pid);
+      })
+      .on("end", () => {
+        resolve();
+      })
       .on("progress", () => p.next())
       .on("error", (e) => {
         p.error();
@@ -73,7 +90,9 @@ try {
     const p = progress("Second pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
     let lastPercent = 0;
 
-    commands[1]
+    const command = ffmpeg(videoPath);
+
+    command
       .videoCodec("libvpx-vp9")
       .audioCodec("libopus")
       .outputOptions([
@@ -86,6 +105,9 @@ try {
         "-ac 2",
       ])
       .save(outputFile)
+      .on("start", () => {
+        pids.add(command.ffmpegProc.pid);
+      })
       .on("end", () => resolve())
       .on("progress", (progress) => {
         if (progress.percent && isNaN(progress.percent) === false && progress.percent > lastPercent) {
@@ -100,11 +122,9 @@ try {
       .run();
   });
 } catch (e) {
-  if (killed === false) console.error(e);
-  Deno.exit();
+  await new Promise((r) => setTimeout(r, 100));
+  if (ranKill === false) console.error(e);
 } finally {
-  await Deno.remove(join(Deno.cwd(), "ffmpeg2pass-0.log")).catch(() => undefined);
-
   console.log(`Terminado. ${crf}, ${deadline}`);
 
   killCommands();
