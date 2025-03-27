@@ -33,27 +33,31 @@ const videoPath = join(Deno.cwd(), video);
 
 const pids = new Set<number>();
 let ranKill = false;
-function killCommands() {
+function end(kill: boolean) {
   if (ranKill) return;
   ranKill = true;
   const promise = Deno.remove(join(Deno.cwd(), "ffmpeg2pass-0.log")).catch(() => undefined);
 
-  for (let i = 0; i < 10; i++)
-    for (const pid of pids) {
-      try {
-        Deno.kill(pid, "SIGINT");
-      } catch {
-        //
+  if (kill) {
+    for (let i = 0; i < 10; i++)
+      for (const pid of pids) {
+        try {
+          Deno.kill(pid, "SIGINT");
+        } catch {
+          //
+        }
       }
-    }
 
-  console.log("Closing in 3 secs");
-  setTimeout(async () => {
-    await promise;
+    console.log("Closing in 3 secs");
+    setTimeout(async () => {
+      await promise;
+      Deno.exit();
+    }, 3000);
+  } else {
     Deno.exit();
-  }, 3000);
+  }
 }
-setHandler(killCommands);
+setHandler(() => end(true));
 
 try {
   console.log("\nComenzando la primera fase");
@@ -122,6 +126,8 @@ try {
   if (ranKill === false) console.error(e);
 } finally {
   await new Promise((r) => setTimeout(r, 100));
-  if (ranKill === false) console.log(`\nTerminado. ${crf}, ${deadline}`);
-  killCommands();
+  if (ranKill === false) {
+    console.log(`\nTerminado. ${crf}, ${deadline}`);
+    end(false);
+  }
 }
