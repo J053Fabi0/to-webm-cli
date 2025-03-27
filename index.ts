@@ -4,6 +4,7 @@ import { Select } from "@cliffy/prompt";
 import { progress } from "@ryweal/progress";
 import { fileTypeFromFile } from "file-type";
 import selectParams from "./selectParams.ts";
+import { setHandler } from "https://deno.land/x/ctrlc@0.2.1/mod.ts";
 
 const videos: string[] = [];
 for await (const file of Deno.readDir(Deno.cwd())) {
@@ -32,13 +33,28 @@ const { crf, deadline } = await selectParams();
 const outputFile = join(Deno.cwd(), `${parse(video).name}.webm`);
 const videoPath = join(Deno.cwd(), video);
 
+let killed = false;
+const commands = [ffmpeg(videoPath), ffmpeg(videoPath)] as const;
+function killCommands() {
+  killed = true;
+  for (let i = 0; i < 10; i++) {
+    for (const c of commands) c.kill("SIGINT");
+  }
+
+  console.log("Closing in 3 secs");
+  setTimeout(() => {
+    Deno.exit();
+  }, 3000);
+}
+setHandler(killCommands);
+
 try {
   console.log("Comenzando la primera fase");
 
   await new Promise<void>((resolve, reject) => {
     const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
 
-    ffmpeg(videoPath)
+    commands[0]
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
@@ -47,7 +63,8 @@ try {
       .on("error", (e) => {
         p.error();
         reject(e);
-      });
+      })
+      .run();
   });
 
   console.log("Comenzando la segunda fase");
@@ -56,7 +73,7 @@ try {
     const p = progress("Second pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
     let lastPercent = 0;
 
-    ffmpeg(videoPath)
+    commands[1]
       .videoCodec("libvpx-vp9")
       .audioCodec("libopus")
       .outputOptions([
@@ -83,9 +100,12 @@ try {
       .run();
   });
 } catch (e) {
-  console.error(e);
+  if (killed === false) console.error(e);
+  Deno.exit();
 } finally {
   await Deno.remove(join(Deno.cwd(), "ffmpeg2pass-0.log")).catch(() => undefined);
 
-  console.log(`Listo. ${crf}, ${deadline}`);
+  console.log(`Terminado. ${crf}, ${deadline}`);
+
+  killCommands();
 }
