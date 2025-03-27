@@ -1,11 +1,11 @@
 import ffmpeg from "fluent-ffmpeg";
+import getFrames from "./getFrames.ts";
 import { join, parse } from "@std/path";
 import { Select } from "@cliffy/prompt";
 import { progress } from "@ryweal/progress";
 import { fileTypeFromFile } from "file-type";
 import selectParams from "./selectParams.ts";
 import { setHandler } from "https://deno.land/x/ctrlc@0.2.1/mod.ts";
-import getFrames from "./getFrames.ts";
 
 const videos: string[] = [];
 for await (const file of Deno.readDir(Deno.cwd())) {
@@ -57,22 +57,26 @@ function killCommands() {
 setHandler(killCommands);
 
 try {
-  console.log("Comenzando la primera fase");
+  console.log("\nComenzando la primera fase");
 
   await new Promise<void>((resolve, reject) => {
     const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
 
     const command = ffmpeg(videoPath);
 
+    let progressCount = 0;
     command
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
       .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
       .on("end", () => {
+        p.update(100);
         resolve();
       })
-      .on("progress", () => p.next())
+      .on("progress", () => {
+        if (++progressCount <= 100) p.next();
+      })
       .on("error", (e) => {
         p.error();
         reject(e);
@@ -80,7 +84,7 @@ try {
       .run();
   });
 
-  console.log("Comenzando la segunda fase");
+  console.log("\nComenzando la segunda fase");
 
   const frames = await getFrames(videoPath);
 
@@ -104,7 +108,10 @@ try {
       ])
       .save(outputFile)
       .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
-      .on("end", () => resolve())
+      .on("end", () => {
+        p.update(frames);
+        resolve();
+      })
       .on("progress", (progress) => {
         if (progress.frames && isNaN(progress.frames) === false && progress.frames > lastFrames) {
           p.update(progress.frames);

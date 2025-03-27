@@ -9,16 +9,17 @@ export default function getFrames(videoPath: string): Promise<number> {
         const videoStream = metadata.streams.find((s) => s.codec_type === "video");
         if (!videoStream) return reject(new Error("No video stream"));
 
-        const frameRate = videoStream.r_frame_rate;
-        const formatDuration = videoStream.duration ?? metadata.format.duration;
+        const frameRate: string | null = videoStream.r_frame_rate ?? null;
+        const formatDuration: number | null = (() => {
+          const fromVideoStream = videoStream.duration ? parseFloat(videoStream.duration) : NaN;
+          if (isNaN(fromVideoStream)) return metadata.format.duration ?? null;
+          return fromVideoStream;
+        })();
 
-        if (frameRate === undefined || formatDuration === undefined)
+        if (frameRate === null || formatDuration === null)
           return reject(new Error("No duration or frame rate found"));
 
-        const formatDurationParsed =
-          typeof formatDuration === "string" ? parseFloat(formatDuration) : formatDuration;
-
-        resolve(Math.round(formatDurationParsed * eval(frameRate)));
+        resolve(Math.round(formatDuration * eval(frameRate)));
       }
     });
   });
