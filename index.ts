@@ -22,10 +22,7 @@ if (videos.length === 0) {
   Deno.exit();
 }
 
-const video = await Select.prompt({
-  message: "¿Cuál video quieres comprimir?",
-  options: [...videos, "Salir"],
-});
+const video = await Select.prompt({ message: "¿Cuál video quieres comprimir?", options: [...videos, "Salir"] });
 if (video === "Salir") Deno.exit();
 
 const { crf, deadline } = await selectParams();
