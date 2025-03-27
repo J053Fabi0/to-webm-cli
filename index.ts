@@ -4,7 +4,6 @@ import { Select } from "@cliffy/prompt";
 import { progress } from "@ryweal/progress";
 import { fileTypeFromFile } from "file-type";
 import selectParams from "./selectParams.ts";
-import { setHandler } from "https://deno.land/x/ctrlc@0.2.1/mod.ts";
 
 const videos: string[] = [];
 for await (const file of Deno.readDir(Deno.cwd())) {
@@ -30,8 +29,6 @@ if (video === "Salir") Deno.exit();
 
 const { crf, deadline } = await selectParams();
 
-// ffmpeg -i input.mp4 -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 1 -an -deadline best -row-mt 1 -f null /dev/null && ffmpeg -i input.mp4 -c:v libvpx-vp9 -b:v 0 -crf 30 -pass 2 -deadline best -row-mt 1 -c:a libopus -b:a 96k -ac 2 output.webm
-
 const outputFile = join(Deno.cwd(), `${parse(video).name}.webm`);
 const videoPath = join(Deno.cwd(), video);
 
@@ -41,9 +38,7 @@ try {
   await new Promise<void>((resolve, reject) => {
     const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
 
-    let runningCommand = ffmpeg(videoPath);
-
-    runningCommand
+    ffmpeg(videoPath)
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
@@ -53,11 +48,6 @@ try {
         p.error();
         reject(e);
       });
-
-    // setHandler(() => {
-    //   runningCommand.kill("SIGINT");
-    //   Deno.exit();
-    // });
   });
 
   console.log("Comenzando la segunda fase");
@@ -66,9 +56,7 @@ try {
     const p = progress("Second pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
     let lastPercent = 0;
 
-    runningCommand = ffmpeg(videoPath);
-
-    runningCommand
+    ffmpeg(videoPath)
       .videoCodec("libvpx-vp9")
       .audioCodec("libopus")
       .outputOptions([
