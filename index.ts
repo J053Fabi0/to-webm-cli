@@ -5,6 +5,7 @@ import { progress } from "@ryweal/progress";
 import { fileTypeFromFile } from "file-type";
 import selectParams from "./selectParams.ts";
 import { setHandler } from "https://deno.land/x/ctrlc@0.2.1/mod.ts";
+import getFrames from "./getFrames.ts";
 
 const videos: string[] = [];
 for await (const file of Deno.readDir(Deno.cwd())) {
@@ -81,9 +82,11 @@ try {
 
   console.log("Comenzando la segunda fase");
 
+  const frames = await getFrames(videoPath);
+
   await new Promise<void>((resolve, reject) => {
-    const p = progress("Second pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
-    let lastPercent = 0;
+    const p = progress("Second pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: frames });
+    let lastFrames = 0;
 
     const command = ffmpeg(videoPath);
 
@@ -103,9 +106,9 @@ try {
       .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
       .on("end", () => resolve())
       .on("progress", (progress) => {
-        if (progress.percent && isNaN(progress.percent) === false && progress.percent > lastPercent) {
-          p.update(parseInt((progress.percent * 100).toString()) / 100);
-          lastPercent = progress.percent;
+        if (progress.frames && isNaN(progress.frames) === false && progress.frames > lastFrames) {
+          p.update(progress.frames);
+          lastFrames = progress.frames;
         }
       })
       .on("error", (e) => {
