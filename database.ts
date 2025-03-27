@@ -1,7 +1,16 @@
 import { z } from "zod";
 import { kvdex, collection } from "kvdex";
+import { join } from "@std/path/join";
 
-const kv = await Deno.openKv();
+Deno.mkdir(join(Deno.env.get("HOME")!, ".local/share/toWebm"), { recursive: true }).catch(() => 1);
+const path = join(Deno.env.get("HOME")!, ".local/share/toWebm/toWebmDb.sqlite3");
+const kv = await (async () => {
+  try {
+    return await Deno.openKv(path);
+  } catch {
+    return await Deno.openKv();
+  }
+})();
 
 export type Deadline = "realtime" | "good" | "best";
 
