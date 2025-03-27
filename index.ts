@@ -63,7 +63,7 @@ try {
   console.log("\nComenzando la primera fase");
 
   await new Promise<void>((resolve, reject) => {
-    const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  [[eta]]", { total: 100 });
+    const p = progress("First pass  |  [[bar]]  |  [[count]]/[[total]]  [[rate]]  eta: [[eta]]", { total: 100 });
 
     const command = ffmpeg(videoPath);
 
@@ -72,13 +72,13 @@ try {
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
       .output("/dev/null")
-      .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
+      .on("start", () => pids.add((command as unknown as { ffmpegProc: { pid: number } }).ffmpegProc.pid))
       .on("end", () => {
-        p.update(100);
+        if (ranKill === false) p.update(100);
         resolve();
       })
       .on("progress", () => {
-        if (++progressCount <= 100) p.next();
+        if (++progressCount <= 100 && ranKill === false) p.next();
       })
       .on("error", reject)
       .run();
@@ -107,13 +107,18 @@ try {
         "-ac 2",
       ])
       .save(outputFile)
-      .on("start", () => pids.add((command.ffmpegProc as unknown as { pid: number }).pid))
+      .on("start", () => pids.add((command as unknown as { ffmpegProc: { pid: number } }).ffmpegProc.pid))
       .on("end", () => {
-        p.update(frames);
+        if (ranKill === false) p.update(frames);
         resolve();
       })
       .on("progress", (progress) => {
-        if (progress.frames && isNaN(progress.frames) === false && progress.frames > lastFrames) {
+        if (
+          progress.frames &&
+          isNaN(progress.frames) === false &&
+          progress.frames > lastFrames &&
+          ranKill === false
+        ) {
           p.update(progress.frames);
           lastFrames = progress.frames;
         }
