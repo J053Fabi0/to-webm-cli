@@ -67,7 +67,6 @@ try {
 
     const command = ffmpeg(videoPath);
 
-    let progressCount = 0;
     command
       .videoCodec("libvpx-vp9")
       .outputOptions(["-an", "-b:v 0", "-pass 1", "-f null", "-row-mt 1", `-crf ${crf}`, `-deadline ${deadline}`])
@@ -78,7 +77,8 @@ try {
         resolve();
       })
       .on("progress", () => {
-        if (++progressCount <= 100 && ranKill === false) p.next();
+        if (ranKill) return;
+        p.next();
       })
       .on("error", reject)
       .run();
