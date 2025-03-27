@@ -38,7 +38,6 @@ function killCommands() {
   ranKill = true;
   const promise = Deno.remove(join(Deno.cwd(), "ffmpeg2pass-0.log")).catch(() => undefined);
 
-  console.log(pids);
   for (let i = 0; i < 10; i++)
     for (const pid of pids) {
       try {
@@ -77,10 +76,7 @@ try {
       .on("progress", () => {
         if (++progressCount <= 100) p.next();
       })
-      .on("error", (e) => {
-        p.error();
-        reject(e);
-      })
+      .on("error", reject)
       .run();
   });
 
@@ -118,10 +114,7 @@ try {
           lastFrames = progress.frames;
         }
       })
-      .on("error", (e) => {
-        p.error();
-        reject(e);
-      })
+      .on("error", reject)
       .run();
   });
 } catch (e) {
@@ -129,6 +122,6 @@ try {
   if (ranKill === false) console.error(e);
 } finally {
   await new Promise((r) => setTimeout(r, 100));
-  if (ranKill === false) console.log(`Terminado. ${crf}, ${deadline}`);
+  if (ranKill === false) console.log(`\nTerminado. ${crf}, ${deadline}`);
   killCommands();
 }
