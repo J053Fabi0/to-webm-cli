@@ -126,13 +126,19 @@ try {
       .on("error", reject)
       .run();
   });
-} catch (e) {
-  await new Promise((r) => setTimeout(r, 100));
-  if (ranKill === false) console.error(e);
-} finally {
+
   await new Promise((r) => setTimeout(r, 100));
   if (ranKill === false) {
     console.log(`\nTerminado. ${crf}, ${deadline}`);
     end(false);
   }
+} catch (e) {
+  await new Promise((r) => setTimeout(r, 100));
+  if (ranKill === false) console.error(e);
+
+  console.log(
+    `ffmpeg -i ${video} -c:v libvpx-vp9 -b:v 0 -crf ${crf} -pass 1 -an -deadline ${deadline} ` +
+      `-row-mt 1 -f null /dev/null && ffmpeg -i ${video} -c:v libvpx-vp9 -b:v 0 -crf ${crf} ` +
+      `-pass 2 -deadline ${deadline} -row-mt 1 -c:a libopus -b:a 96k -ac 2 ${parse(video).name}.webm`
+  );
 }
