@@ -141,4 +141,6 @@ try {
       `-row-mt 1 -f null /dev/null && ffmpeg -i ${video} -c:v libvpx-vp9 -b:v 0 -crf ${crf} ` +
       `-pass 2 -deadline ${deadline} -row-mt 1 -c:a libopus -b:a 96k -ac 2 ${parse(video).name}.webm`
   );
+
+  Deno.exit();
 }
